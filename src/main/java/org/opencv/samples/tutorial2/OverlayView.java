@@ -15,8 +15,6 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
-import android.text.Layout.Alignment;
-import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.util.Log;
 import android.view.View;
@@ -174,79 +172,77 @@ public class OverlayView extends View implements SensorEventListener {
         canH = canvas.getHeight()/2;
         // Draw something fixed (for now) over the camera view
 
-
-        StringBuilder text = new StringBuilder(accelData).append("\n");
-        text.append(compassData).append("\n");
-        text.append(gyroData).append("\n");
+        float curBearing = 10000f;
+        int counter = 0;
         for (int i = 0; i < inters.length; i++) {
-            float curBearing = lastLocation.bearingTo(inters[i]);
-            // compute rotation matrix
-            float rotation[] = new float[9];
-            float identity[] = new float[9];
-            if (magSensorVals != null && gravSensorVals != null) {
-                boolean gotRotation = SensorManager.getRotationMatrix(rotation,
-                        identity, gravSensorVals, magSensorVals);
-                if (gotRotation) {
-                    float cameraRotation[] = new float[9];
-                    // remap such that the camera is pointing straight down the Y
-                    // axis
-                    SensorManager.remapCoordinateSystem(rotation,
-                            SensorManager.AXIS_X, SensorManager.AXIS_Z,
-                            cameraRotation);
+            if (curBearing < lastLocation.bearingTo(inters[i])) {
+                curBearing = lastLocation.bearingTo(inters[i]);
+                counter = i;
+            }
+        }
+        // compute rotation matrix
+        float rotation[] = new float[9];
+        float identity[] = new float[9];
+        if (magSensorVals != null && gravSensorVals != null) {
+            boolean gotRotation = SensorManager.getRotationMatrix(rotation,
+                    identity, gravSensorVals, magSensorVals);
+            if (gotRotation) {
+                float cameraRotation[] = new float[9];
+                // remap such that the camera is pointing straight down the Y
+                // axis
+                SensorManager.remapCoordinateSystem(rotation,
+                        SensorManager.AXIS_X, SensorManager.AXIS_Z,
+                        cameraRotation);
 
-                    // orientation vector
-                    float orientation[] = new float[3];
-                    SensorManager.getOrientation(cameraRotation, orientation);
+                // orientation vector
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(cameraRotation, orientation);
 
-                    // draw horizon line (a nice sanity check piece) and the target (if it's on the screen)
-                    canvas.save();
-                    // use roll for screen rotation
-                    canvas.rotate((float) (0.0f - Math.toDegrees(orientation[2])));
+                // draw horizon line (a nice sanity check piece) and the target (if it's on the screen)
+                canvas.save();
+                // use roll for screen rotation
+                canvas.rotate((float) (0.0f - Math.toDegrees(orientation[2])));
 
-                    // Translate, but normalize for the FOV of the camera -- basically, pixels per degree, times degrees == pixels
-                    float dx = (float) ((canvas.getWidth() / horizontalFOV) * (Math.toDegrees(orientation[0]) - curBearing));
-                    float dy = (float) ((canvas.getHeight() / verticalFOV) * Math.toDegrees(orientation[1]));
+                // Translate, but normalize for the FOV of the camera -- basically, pixels per degree, times degrees == pixels
+                float dx = (float) ((canvas.getWidth() / horizontalFOV) * (Math.toDegrees(orientation[0]) - curBearing));
+                float dy = (float) ((canvas.getHeight() / verticalFOV) * Math.toDegrees(orientation[1]));
 
 
-                    // wait to translate the dx so the horizon doesn't get pushed off
-                    canvas.translate(0.0f, 0.0f - dy);
+                // wait to translate the dx so the horizon doesn't get pushed off
+                canvas.translate(0.0f, 0.0f - dy);
 
-                    canvas.rotate(270f);
+                canvas.rotate(270f);
 
-                    // now translate the dx
-                    canvas.translate(0.0f - dx, 0.0f);
+                // now translate the dx
+                canvas.translate(0.0f - dx, 0.0f);
 
-                    // draw our point -- we've rotated and translated this to the right spot already
-                    //canvas.drawCircle(canvas.getWidth()/2, canvas.getHeight()/2, 70.0f, targetPaint);
-                    int cx = (canWid) >> 1; // same as (...) / 2
-                    int cy = (canH) >> 1;
-                    if (which == 1) {
-                        canvas.drawText("AQI: " + aqi[i], cx, cy, newpaint);
-                        canvas.drawText("AQI: " + aqi[i], cx, cy, newpaint2);
-                    }
-                    else if (which == 2){
-                        canvas.drawText("Humidity: "+ hum+"%", cx, cy, newpaint);
-                        canvas.drawText("Humidity: "+ hum+"%", cx, cy, newpaint2);
-                    }
-                    else if (which == 3){
-                        canvas.drawText("Temperature: "+temp+" Celsius", cx, cy, newpaint);
-                        canvas.drawText("Temperature: "+temp+" Celsius", cx, cy, newpaint2);
-                    }
-                    String[] parts = streets[i].split(" and ");
-                    canvas.drawText(parts[0],cx, cy+newpaint.getTextSize(), newpaint);
-                    canvas.drawText(parts[1],cx, cy+newpaint.getTextSize()*2, newpaint);
-                    canvas.drawText(parts[0],cx, cy+newpaint.getTextSize(), newpaint2);
-                    canvas.drawText(parts[1],cx, cy+newpaint.getTextSize()*2, newpaint2);
-                    canvas.restore();
+                // draw our point -- we've rotated and translated this to the right spot already
+                //canvas.drawCircle(canvas.getWidth()/2, canvas.getHeight()/2, 70.0f, targetPaint);
+                int cx = (canWid) >> 1; // same as (...) / 2
+                int cy = (canH) >> 1;
+                if (which == 1) {
+                    canvas.drawText("AQI: " + aqi[counter], cx, cy, newpaint);
+                    canvas.drawText("AQI: " + aqi[counter], cx, cy, newpaint2);
                 }
+                else if (which == 2){
+                    canvas.drawText("Humidity: "+ hum+"%", cx, cy, newpaint);
+                    canvas.drawText("Humidity: "+ hum+"%", cx, cy, newpaint2);
+                }
+                else if (which == 3){
+                    canvas.drawText("Temperature: "+temp+" Celsius", cx, cy, newpaint);
+                    canvas.drawText("Temperature: "+temp+" Celsius", cx, cy, newpaint2);
+                }
+                String[] parts = streets[counter].split(" and ");
+                canvas.drawText(parts[0],cx, cy+newpaint.getTextSize(), newpaint);
+                canvas.drawText(parts[1],cx, cy+newpaint.getTextSize()*2, newpaint);
+                canvas.drawText(parts[0],cx, cy+newpaint.getTextSize(), newpaint2);
+                canvas.drawText(parts[1],cx, cy+newpaint.getTextSize()*2, newpaint2);
+                canvas.restore();
             }
         }
 
         canvas.save();
         canvas.translate(15.0f, 15.0f);
-        StaticLayout textBox = new StaticLayout(text.toString(), contentPaint,
-                480, Alignment.ALIGN_NORMAL, 1.0f, 0.0f, true);
-        textBox.draw(canvas);
         canvas.restore();
     }
 
